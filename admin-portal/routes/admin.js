@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcryptjs');
 const router = express.Router();
 
 // Connect to the same MongoDB as LibreChat
@@ -296,6 +297,68 @@ router.get('/statistics/export', async (req, res) => {
   } catch (error) {
     console.error('Error exporting statistics:', error);
     res.status(500).json({ error: 'Failed to export statistics' });
+  }
+});
+
+// Create new user
+router.post('/users/create', async (req, res) => {
+  try {
+    const { name, email, password, role, emailVerified } = req.body;
+
+    // Validate required fields
+    if (!name || !email || !password) {
+      return res.status(400).json({ error: 'Name, email, and password are required' });
+    }
+
+    // Check if user already exists
+    const existingUser = await User.findOne({ email });
+    if (existingUser) {
+      return res.status(400).json({ error: 'User with this email already exists' });
+    }
+
+    // Hash password
+    const hashedPassword = await bcrypt.hash(password, 12);
+
+    // Create new user
+    const newUser = new User({
+      name,
+      email,
+      password: hashedPassword,
+      role: role || 'USER',
+      emailVerified: emailVerified !== undefined ? emailVerified : true,
+      provider: 'local'
+    });
+
+    await newUser.save();
+
+    // Log the admin activity
+    if (req.logActivity) {
+      await req.logActivity(
+        'user_created',
+        `Created new user: ${email}`,
+        req.user._id,
+        req.user.email,
+        newUser._id,
+        email,
+        { role: newUser.role, emailVerified: newUser.emailVerified },
+        req
+      );
+    }
+
+    res.json({ 
+      message: 'User created successfully',
+      user: {
+        _id: newUser._id,
+        name: newUser.name,
+        email: newUser.email,
+        role: newUser.role,
+        emailVerified: newUser.emailVerified,
+        createdAt: newUser.createdAt
+      }
+    });
+  } catch (error) {
+    console.error('Error creating user:', error);
+    res.status(500).json({ error: 'Failed to create user' });
   }
 });
 

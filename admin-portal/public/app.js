@@ -56,6 +56,25 @@ class AdminPortal {
             this.exportUsers();
         });
 
+        // Add User modal controls
+        document.getElementById('addUserBtn').addEventListener('click', () => {
+            this.showAddUserModal();
+        });
+
+        document.getElementById('closeAddUserModal').addEventListener('click', () => {
+            this.hideAddUserModal();
+        });
+
+        document.getElementById('cancelAddUser').addEventListener('click', () => {
+            this.hideAddUserModal();
+        });
+
+        // Add User form submission
+        document.getElementById('addUserForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            this.createUser();
+        });
+
         // Statistics controls
         document.getElementById('refreshStats').addEventListener('click', () => {
             this.loadStatistics();
@@ -471,6 +490,57 @@ class AdminPortal {
             }
         } catch (error) {
             alert('Failed to export users');
+        }
+    }
+
+    // Add User Modal Methods
+    showAddUserModal() {
+        document.getElementById('addUserModal').classList.remove('hidden');
+        document.getElementById('addUserForm').reset();
+        document.getElementById('addUserError').classList.add('hidden');
+    }
+
+    hideAddUserModal() {
+        document.getElementById('addUserModal').classList.add('hidden');
+        document.getElementById('addUserForm').reset();
+        document.getElementById('addUserError').classList.add('hidden');
+    }
+
+    async createUser() {
+        const formData = new FormData(document.getElementById('addUserForm'));
+        const userData = {
+            name: formData.get('name'),
+            email: formData.get('email'),
+            password: formData.get('password'),
+            role: formData.get('role'),
+            emailVerified: formData.get('emailVerified') === 'on'
+        };
+
+        const errorDiv = document.getElementById('addUserError');
+
+        try {
+            const response = await fetch('/api/admin/users/create', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify(userData),
+            });
+
+            const result = await response.json();
+
+            if (response.ok) {
+                this.hideAddUserModal();
+                this.loadUsers(); // Refresh the user list
+                alert(`User "${userData.name}" created successfully!`);
+            } else {
+                errorDiv.textContent = result.error || 'Failed to create user';
+                errorDiv.classList.remove('hidden');
+            }
+        } catch (error) {
+            errorDiv.textContent = 'Failed to create user. Please try again.';
+            errorDiv.classList.remove('hidden');
         }
     }
 
