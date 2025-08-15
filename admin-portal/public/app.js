@@ -56,6 +56,15 @@ class AdminPortal {
             this.exportUsers();
         });
 
+        // Statistics controls
+        document.getElementById('refreshStats').addEventListener('click', () => {
+            this.loadStatistics();
+        });
+
+        document.getElementById('exportStats').addEventListener('click', () => {
+            this.exportStatistics();
+        });
+
         // Pagination
         document.getElementById('prevPage').addEventListener('click', () => {
             if (this.currentPage > 1) {
@@ -519,8 +528,173 @@ class AdminPortal {
     }
 
     loadStatistics() {
-        // Implementation for statistics page
-        console.log('Loading statistics...');
+        this.loadDetailedStatistics();
+    }
+
+    async loadDetailedStatistics() {
+        try {
+            const response = await fetch('/api/admin/statistics', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                },
+            });
+
+            if (response.ok) {
+                const stats = await response.json();
+                this.renderStatistics(stats);
+                this.renderCharts(stats.charts);
+            } else {
+                console.error('Failed to load statistics');
+            }
+        } catch (error) {
+            console.error('Error loading statistics:', error);
+        }
+    }
+
+    renderStatistics(stats) {
+        // Update overview metrics
+        document.getElementById('statsTotalUsers').textContent = stats.overview.totalUsers.toLocaleString();
+        document.getElementById('statsTotalMessages').textContent = stats.overview.totalMessages.toLocaleString();
+        document.getElementById('statsTotalConversations').textContent = stats.overview.totalConversations.toLocaleString();
+        document.getElementById('statsActiveUsers').textContent = stats.overview.activeUsers.toLocaleString();
+
+        // Update growth percentages
+        document.getElementById('statsUserGrowth').textContent = stats.growth.userGrowth;
+        document.getElementById('statsMessageGrowth').textContent = stats.growth.messageGrowth;
+        document.getElementById('statsConversationGrowth').textContent = stats.growth.conversationGrowth;
+        document.getElementById('statsActiveGrowth').textContent = stats.growth.activeGrowth;
+
+        // Update user statistics
+        document.getElementById('statsRegisteredUsers').textContent = stats.users.registered.toLocaleString();
+        document.getElementById('statsVerifiedUsers').textContent = stats.users.verified.toLocaleString();
+        document.getElementById('statsAdminUsers').textContent = stats.users.admin.toLocaleString();
+        document.getElementById('statsBannedUsers').textContent = stats.users.banned.toLocaleString();
+        document.getElementById('stats2FAUsers').textContent = stats.users.twoFactor.toLocaleString();
+        document.getElementById('statsRecentLogins').textContent = stats.users.recentLogins.toLocaleString();
+
+        // Update performance metrics
+        document.getElementById('statsAvgMessages').textContent = stats.performance.avgMessagesPerUser;
+        document.getElementById('statsAvgConversations').textContent = stats.performance.avgConversationsPerUser;
+        document.getElementById('statsPeakHour').textContent = stats.performance.peakHour;
+        document.getElementById('statsDatabaseSize').textContent = stats.performance.databaseSize;
+        document.getElementById('statsStorageUsed').textContent = stats.performance.storageUsed;
+        
+        // Format uptime
+        const uptime = stats.performance.uptime;
+        const days = Math.floor(uptime / 86400);
+        const hours = Math.floor((uptime % 86400) / 3600);
+        const minutes = Math.floor((uptime % 3600) / 60);
+        document.getElementById('statsUptime').textContent = `${days}d ${hours}h ${minutes}m`;
+
+        // Update last updated time
+        document.getElementById('statsLastUpdated').textContent = new Date(stats.lastUpdated).toLocaleString();
+    }
+
+    renderCharts(chartData) {
+        // User Growth Chart
+        const userGrowthCtx = document.getElementById('userGrowthChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (this.userGrowthChart) {
+            this.userGrowthChart.destroy();
+        }
+
+        this.userGrowthChart = new Chart(userGrowthCtx, {
+            type: 'line',
+            data: {
+                labels: chartData.userGrowth.map(item => item.date),
+                datasets: [{
+                    label: 'New Users',
+                    data: chartData.userGrowth.map(item => item.count),
+                    borderColor: 'rgb(59, 130, 246)',
+                    backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                    tension: 0.1,
+                    fill: true
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+
+        // Message Activity Chart
+        const messageActivityCtx = document.getElementById('messageActivityChart').getContext('2d');
+        
+        // Destroy existing chart if it exists
+        if (this.messageActivityChart) {
+            this.messageActivityChart.destroy();
+        }
+
+        this.messageActivityChart = new Chart(messageActivityCtx, {
+            type: 'bar',
+            data: {
+                labels: chartData.messageActivity.map(item => item.date),
+                datasets: [{
+                    label: 'Messages',
+                    data: chartData.messageActivity.map(item => item.count),
+                    backgroundColor: 'rgba(16, 185, 129, 0.8)',
+                    borderColor: 'rgb(16, 185, 129)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        display: false
+                    }
+                }
+            }
+        });
+    }
+
+    async exportStatistics() {
+        try {
+            const response = await fetch('/api/admin/statistics/export', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                },
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `statistics_report_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                alert('Failed to export statistics');
+            }
+        } catch (error) {
+            alert('Failed to export statistics');
+        }
     }
 
     async loadDatabase() {
