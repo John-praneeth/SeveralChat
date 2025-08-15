@@ -1,8 +1,10 @@
 import { useState, memo } from 'react';
 import { useRecoilState } from 'recoil';
+import { useNavigate } from 'react-router-dom';
 import * as Select from '@ariakit/react/select';
-import { FileText, LogOut } from 'lucide-react';
+import { FileText, LogOut, Shield } from 'lucide-react';
 import { LinkIcon, GearIcon, DropdownMenuSeparator, UserIcon } from '@librechat/client';
+import { SystemRoles } from 'librechat-data-provider';
 import { useGetStartupConfig, useGetUserBalance } from '~/data-provider';
 import FilesView from '~/components/Chat/Input/Files/FilesView';
 import { useAuthContext } from '~/hooks/AuthContext';
@@ -13,6 +15,7 @@ import store from '~/store';
 
 function AccountSettings() {
   const localize = useLocalize();
+  const navigate = useNavigate();
   const { user, isAuthenticated, logout } = useAuthContext();
   const { data: startupConfig } = useGetStartupConfig();
   const balanceQuery = useGetUserBalance({
@@ -23,6 +26,7 @@ function AccountSettings() {
 
   const avatarSrc = useAvatar(user);
   const avatarSeed = user?.avatar || user?.name || user?.username || '';
+  const isAdmin = user?.role === SystemRoles.ADMIN;
 
   return (
     <Select.SelectProvider>
@@ -91,6 +95,16 @@ function AccountSettings() {
           <FileText className="icon-md" aria-hidden="true" />
           {localize('com_nav_my_files')}
         </Select.SelectItem>
+        {isAdmin && (
+          <Select.SelectItem
+            value=""
+            onClick={() => navigate('/admin')}
+            className="select-item text-sm"
+          >
+            <Shield className="icon-md" aria-hidden="true" />
+            Admin Portal
+          </Select.SelectItem>
+        )}
         {startupConfig?.helpAndFaqURL !== '/' && (
           <Select.SelectItem
             value=""
