@@ -2,6 +2,7 @@ class AdminPortal {
     constructor() {
         this.token = localStorage.getItem('adminToken');
         this.currentPage = 1;
+        this.selectedUsers = new Set();
         this.init();
     }
 
@@ -13,6 +14,7 @@ class AdminPortal {
         }
 
         this.setupEventListeners();
+        this.setupBulkActions();
     }
 
     setupEventListeners() {
@@ -45,6 +47,15 @@ class AdminPortal {
             this.loadUsers();
         });
 
+        document.getElementById('statusFilter').addEventListener('change', () => {
+            this.loadUsers();
+        });
+
+        // Export users
+        document.getElementById('exportUsers').addEventListener('click', () => {
+            this.exportUsers();
+        });
+
         // Pagination
         document.getElementById('prevPage').addEventListener('click', () => {
             if (this.currentPage > 1) {
@@ -57,6 +68,40 @@ class AdminPortal {
             this.currentPage++;
             this.loadUsers();
         });
+    }
+
+    setupBulkActions() {
+        // Select all checkbox
+        document.getElementById('selectAll').addEventListener('change', (e) => {
+            const checkboxes = document.querySelectorAll('.user-checkbox');
+            checkboxes.forEach(checkbox => {
+                checkbox.checked = e.target.checked;
+                if (e.target.checked) {
+                    this.selectedUsers.add(checkbox.value);
+                } else {
+                    this.selectedUsers.delete(checkbox.value);
+                }
+            });
+            this.updateSelectedCount();
+        });
+
+        // Individual checkboxes
+        document.addEventListener('change', (e) => {
+            if (e.target.classList.contains('user-checkbox')) {
+                if (e.target.checked) {
+                    this.selectedUsers.add(e.target.value);
+                } else {
+                    this.selectedUsers.delete(e.target.value);
+                }
+                this.updateSelectedCount();
+            }
+        });
+    }
+
+    updateSelectedCount() {
+        const count = this.selectedUsers.size;
+        document.getElementById('selectedCount').textContent = `${count} selected`;
+        document.getElementById('bulkActions').classList.toggle('hidden', count === 0);
     }
 
     async login() {
@@ -149,6 +194,9 @@ class AdminPortal {
             case 'users':
                 this.loadUsers();
                 break;
+            case 'security':
+                this.loadSecurityDashboard();
+                break;
             case 'statistics':
                 this.loadStatistics();
                 break;
@@ -188,12 +236,14 @@ class AdminPortal {
     async loadUsers() {
         const search = document.getElementById('userSearch').value;
         const role = document.getElementById('roleFilter').value;
+        const status = document.getElementById('statusFilter').value;
         
         try {
             const params = new URLSearchParams({
                 page: this.currentPage,
                 search,
                 role,
+                status,
             });
 
             const response = await fetch(`/api/admin/users?${params}`, {
@@ -218,12 +268,21 @@ class AdminPortal {
 
         users.forEach(user => {
             const row = document.createElement('tr');
+            const lastLogin = user.lastLogin ? new Date(user.lastLogin).toLocaleDateString() : 'Never';
+            const status = user.banned ? 'Banned' : (!user.emailVerified ? 'Unverified' : 'Active');
+            const statusClass = user.banned ? 'bg-red-100 text-red-800' : 
+                               (!user.emailVerified ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800');
+
             row.innerHTML = `
+                <td class="px-6 py-4 whitespace-nowrap">
+                    <input type="checkbox" class="user-checkbox rounded" value="${user._id}">
+                </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     <div class="flex items-center">
                         <div class="ml-4">
                             <div class="text-sm font-medium text-gray-900">${user.name || 'N/A'}</div>
                             <div class="text-sm text-gray-500">${user.email}</div>
+                            ${user.twoFactorEnabled ? '<span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800"><i class="fas fa-shield-alt mr-1"></i>2FA</span>' : ''}
                         </div>
                     </div>
                 </td>
@@ -235,11 +294,12 @@ class AdminPortal {
                     </span>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                        user.banned ? 'bg-red-100 text-red-800' : 'bg-green-100 text-green-800'
-                    }">
-                        ${user.banned ? 'Banned' : 'Active'}
+                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${statusClass}">
+                        ${status}
                     </span>
+                </td>
+                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    ${lastLogin}
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     ${new Date(user.createdAt).toLocaleDateString()}
@@ -337,6 +397,125 @@ class AdminPortal {
         } catch (error) {
             alert('Failed to delete user');
         }
+    }
+
+    // Bulk Operations
+    async bulkAction(action, params = {}) {
+        if (this.selectedUsers.size === 0) {
+            alert('Please select users first');
+            return;
+        }
+
+        const userIds = Array.from(this.selectedUsers);
+        const confirmMessage = `Are you sure you want to ${action} ${userIds.length} user(s)?`;
+        
+        if (!confirm(confirmMessage)) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/admin/users/bulk/${action}`, {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ userIds, ...params }),
+            });
+
+            if (response.ok) {
+                this.selectedUsers.clear();
+                this.updateSelectedCount();
+                document.getElementById('selectAll').checked = false;
+                this.loadUsers();
+                alert(`Successfully ${action}ed ${userIds.length} user(s)`);
+            } else {
+                const error = await response.json();
+                alert(`Failed to ${action} users: ${error.error}`);
+            }
+        } catch (error) {
+            alert(`Failed to ${action} users`);
+        }
+    }
+
+    // Export Users
+    async exportUsers() {
+        try {
+            const response = await fetch('/api/admin/users/export', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                },
+            });
+
+            if (response.ok) {
+                const blob = await response.blob();
+                const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `users_export_${new Date().toISOString().split('T')[0]}.csv`;
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                document.body.removeChild(a);
+            } else {
+                alert('Failed to export users');
+            }
+        } catch (error) {
+            alert('Failed to export users');
+        }
+    }
+
+    // Security Dashboard
+    async loadSecurityDashboard() {
+        try {
+            const response = await fetch('/api/admin/security/audit', {
+                headers: {
+                    'Authorization': `Bearer ${this.token}`,
+                },
+            });
+
+            if (response.ok) {
+                const data = await response.json();
+                
+                // Update security stats
+                document.getElementById('bannedUsers').textContent = data.stats.bannedUsers;
+                document.getElementById('unverifiedUsers').textContent = data.stats.unverifiedUsers;
+                document.getElementById('twoFactorUsers').textContent = data.stats.twoFactorUsers;
+                document.getElementById('verificationRate').textContent = `${data.stats.verificationRate}%`;
+                document.getElementById('adminCount').textContent = data.stats.adminUsers;
+                document.getElementById('activeSessions').textContent = data.stats.activeSessions;
+
+                // Render security events
+                this.renderSecurityEvents(data.recentEvents);
+            }
+        } catch (error) {
+            console.error('Failed to load security data:', error);
+        }
+    }
+
+    renderSecurityEvents(events) {
+        const container = document.getElementById('securityEvents');
+        
+        if (!events || events.length === 0) {
+            container.innerHTML = '<p class="text-gray-500">No recent security events</p>';
+            return;
+        }
+
+        container.innerHTML = events.map(event => `
+            <div class="flex items-center space-x-3 p-3 bg-gray-50 rounded">
+                <div class="flex-shrink-0">
+                    <div class="w-2 h-2 rounded-full ${
+                        event.type === 'ban' ? 'bg-red-500' :
+                        event.type === 'login_attempt' ? 'bg-yellow-500' :
+                        event.type === 'role_change' ? 'bg-blue-500' : 'bg-gray-500'
+                    }"></div>
+                </div>
+                <div class="flex-1 min-w-0">
+                    <p class="text-sm font-medium text-gray-900">${event.description}</p>
+                    <p class="text-xs text-gray-500">${new Date(event.timestamp).toLocaleString()}</p>
+                </div>
+            </div>
+        `).join('');
     }
 
     loadStatistics() {
