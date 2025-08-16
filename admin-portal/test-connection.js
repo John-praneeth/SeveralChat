@@ -3,9 +3,9 @@ require('dotenv').config();
 
 async function testConnection() {
   try {
-    const MONGO_URI = 'mongodb+srv://praneeth:s7XJ2hwfZhggIwQz@librechat.v7jxcfg.mongodb.net/LibreChat';
+    const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://praneeth:s7XJ2hwfZhggIwQz@librechat.v7jxcfg.mongodb.net/LibreChat';
     
-    console.log('🔌 Testing MongoDB Atlas connection...');
+    console.log('🔌 Testing MongoDB connection...');
     console.log('URI:', MONGO_URI.replace(/:[^:@]*@/, ':***@')); // Hide password
     
     await mongoose.connect(MONGO_URI, {
@@ -15,7 +15,7 @@ async function testConnection() {
       socketTimeoutMS: 45000,
     });
     
-    console.log('✅ Connected to MongoDB Atlas successfully!');
+    console.log('✅ Connected to MongoDB successfully!');
     
     // List databases
     const admin = mongoose.connection.db.admin();

@@ -19,6 +19,15 @@ const authRoutes = require('./routes/auth');
 app.use('/api/admin', adminRoutes);
 app.use('/api/auth', authRoutes);
 
+// Health check endpoint for Docker
+app.get('/api/health', (req, res) => {
+  res.status(200).json({ 
+    status: 'healthy', 
+    timestamp: new Date().toISOString(),
+    service: 'LibreChat Admin Portal'
+  });
+});
+
 // Serve the admin portal HTML
 app.get('/', (req, res) => {
   res.sendFile(path.join(__dirname, 'public', 'index.html'));

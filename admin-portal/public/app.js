@@ -262,9 +262,10 @@ class AdminPortal {
     }
 
     async loadUsers() {
-        const search = document.getElementById('userSearch').value;
-        const role = document.getElementById('roleFilter').value;
-        const status = document.getElementById('statusFilter').value;
+        console.log('Loading users...');
+        const search = document.getElementById('userSearch')?.value || '';
+        const role = document.getElementById('roleFilter')?.value || '';
+        const status = document.getElementById('statusFilter')?.value || '';
         
         try {
             const params = new URLSearchParams({
@@ -274,6 +275,7 @@ class AdminPortal {
                 status,
             });
 
+            console.log('Fetching users with params:', params.toString());
             const response = await fetch(`/api/admin/users?${params}`, {
                 headers: {
                     'Authorization': `Bearer ${this.token}`,
@@ -282,8 +284,13 @@ class AdminPortal {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('Users data received:', data);
                 this.renderUsers(data.users);
                 this.renderPagination(data.pagination);
+            } else {
+                console.error('Failed to load users, status:', response.status);
+                const errorText = await response.text();
+                console.error('Error details:', errorText);
             }
         } catch (error) {
             console.error('Failed to load users:', error);
@@ -546,6 +553,7 @@ class AdminPortal {
 
     // Security Dashboard
     async loadSecurityDashboard() {
+        console.log('Loading security dashboard...');
         try {
             const response = await fetch('/api/admin/security/audit', {
                 headers: {
@@ -555,6 +563,7 @@ class AdminPortal {
 
             if (response.ok) {
                 const data = await response.json();
+                console.log('Security data received:', data);
                 
                 // Update security stats
                 document.getElementById('bannedUsers').textContent = data.stats.bannedUsers;
@@ -566,6 +575,10 @@ class AdminPortal {
 
                 // Render security events
                 this.renderSecurityEvents(data.recentEvents);
+            } else {
+                console.error('Failed to load security data, status:', response.status);
+                const errorText = await response.text();
+                console.error('Error details:', errorText);
             }
         } catch (error) {
             console.error('Failed to load security data:', error);
@@ -602,6 +615,7 @@ class AdminPortal {
     }
 
     async loadDetailedStatistics() {
+        console.log('Loading detailed statistics...');
         try {
             const response = await fetch('/api/admin/statistics', {
                 headers: {
@@ -611,10 +625,13 @@ class AdminPortal {
 
             if (response.ok) {
                 const stats = await response.json();
+                console.log('Statistics data received:', stats);
                 this.renderStatistics(stats);
                 this.renderCharts(stats.charts);
             } else {
-                console.error('Failed to load statistics');
+                console.error('Failed to load statistics, status:', response.status);
+                const errorText = await response.text();
+                console.error('Error details:', errorText);
             }
         } catch (error) {
             console.error('Error loading statistics:', error);
@@ -623,9 +640,9 @@ class AdminPortal {
 
     renderStatistics(stats) {
         // Update overview metrics
-        document.getElementById('statsTotalUsers').textContent = stats.overview.totalUsers.toLocaleString();
-        document.getElementById('statsTotalMessages').textContent = stats.overview.totalMessages.toLocaleString();
-        document.getElementById('statsTotalConversations').textContent = stats.overview.totalConversations.toLocaleString();
+        document.getElementById('statsUsers').textContent = stats.overview.totalUsers.toLocaleString();
+        document.getElementById('statsMessages').textContent = stats.overview.totalMessages.toLocaleString();
+        document.getElementById('statsConversations').textContent = stats.overview.totalConversations.toLocaleString();
         document.getElementById('statsActiveUsers').textContent = stats.overview.activeUsers.toLocaleString();
 
         // Update growth percentages
@@ -803,3 +820,5 @@ class AdminPortal {
 
 // Initialize the admin portal
 const adminPortal = new AdminPortal();
+// Make it globally available for debugging
+window.adminPortal = adminPortal;
