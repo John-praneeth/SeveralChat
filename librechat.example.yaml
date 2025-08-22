@@ -15,7 +15,13 @@ interface:
   customWelcome: "Welcome to LibreChat! Enjoy your experience."
   # MCP Servers UI configuration
   mcpServers:
-    placeholder: 'MCP Servers'
+    mcpServers:
+    notionMCP:
+      command: npx
+      args:
+        - "-y"
+        - mcp-remote
+        - "https://mcp.notion.com/mcp"
   # Enable/disable file search as a chatarea selection (default: true)
   # Note: This setting does not disable the Agents File Search Capability.
   # To disable the Agents Capability, see the Agents Endpoint configuration instead.
