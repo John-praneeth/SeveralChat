@@ -70,20 +70,12 @@ RUN uv --version
 WORKDIR /app
 # Install only production deps
 RUN npm ci --omit=dev
-# Add this AFTER existing RUN npm install commands in the build stage
-RUN npm install -g @notionhq/notion-mcp-server
-# Add supergateway for SSE bridge if needed
-RUN npm install -g supergateway
-# Ensure proper permissions for global packages
-RUN chown -R node:node /usr/local/lib/node_modules /usr/local/bin
 COPY api ./api
 COPY config ./config
 COPY --from=data-provider-build /app/packages/data-provider/dist ./packages/data-provider/dist
 COPY --from=data-schemas-build /app/packages/data-schemas/dist ./packages/data-schemas/dist
 COPY --from=api-package-build /app/packages/api/dist ./packages/api/dist
 COPY --from=client-build /app/client/dist ./client/dist
-# Copy the librechat.yaml configuration file for MCP support
-COPY librechat.yaml ./librechat.yaml
 WORKDIR /app/api
 EXPOSE 3080
 ENV HOST=0.0.0.0
