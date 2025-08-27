@@ -25,6 +25,10 @@ FROM base-min AS base
 WORKDIR /app
 RUN npm ci
 
+RUN npm install -g @notionhq/notion-mcp-server && \
+    npm install -g supergateway && \
+    chown -R node:node /usr/local/lib/node_modules /usr/local/bin
+
 # Build `data-provider` package
 FROM base AS data-provider-build
 WORKDIR /app/packages/data-provider
@@ -72,6 +76,7 @@ WORKDIR /app
 RUN npm ci --omit=dev
 COPY api ./api
 COPY config ./config
+COPY librechat.yaml ./librechat.yaml
 COPY --from=data-provider-build /app/packages/data-provider/dist ./packages/data-provider/dist
 COPY --from=data-schemas-build /app/packages/data-schemas/dist ./packages/data-schemas/dist
 COPY --from=api-package-build /app/packages/api/dist ./packages/api/dist
